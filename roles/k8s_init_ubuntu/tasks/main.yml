@@ -1,0 +1,61 @@
+---
+
+# This for init machine to install k8s
+
+- name: disable ufw
+  service: name=ufw state=stopped enabled=no
+
+- name: disable apparmor
+  service: name=apparmor state=stopped enabled=no
+
+- name: Edit apt resource file
+  copy: src=sources.list dest=/etc/apt/sources.list mode=644
+
+- name: Copy k8s resource
+  copy: src=kubernetes.list dest=/etc/apt/sources.list.d/kubernetes.list mode=644
+
+- name: Copy timesyncd config file 
+  template: src=timesyncd.conf.j2 dest=/etc/systemd/timesyncd.conf mode=644
+  notify: restart systemd-timesyncd
+
+- name: Add aliyun docker repo
+  shell: add-apt-repository "deb [arch=amd64] http://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable"
+
+- name: Add gpg key for aliyun repo
+  shell: curl -fsSL {{ item }} | apt-key add -
+  with_items:
+    - "https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg"
+    - "http://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg"
+- name: Install the packages
+  apt: name={{ item }} update_cache=yes
+  with_items:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+    - ipset
+    - ipvsadm
+    - docker-ce={{ docker_ce_version }}
+    - kubelet={{ k8s_package_version }}
+    - kubeadm={{ k8s_package_version }}
+    - kubectl={{ k8s_package_version }}
+  notify: enable kubelet
+
+- name: Copy docker configuration
+  template: src=daemon.json.j2 dest=/etc/docker/daemon.json mode=644
+
+- name: Replace docker-runc
+  copy: src=runc-v17.03.2-amd64 dest=/usr/bin/docker-runc mode=755
+  notify: enable docker
+
+- name: Add ipvs parameter
+  modprobe: name={{ item }} state=present
+  with_items:
+    - ip_vs
+    - ip_vs_rr
+    - ip_vs_wrr
+    - ip_vs_sh
+    - nf_conntrack_ipv4
+
+- name: Adjustment os configuration
+  shell: swapoff -a && sed -i 's/.*swap.*/#&/' /etc/fstab && echo 'KUBELET_EXTRA_ARGS="--cgroup-driver=cgroupfs --pod-infra-container-image=dir.staff.xdf.cn/google_containers/pause-amd64:3.1 --read-only-port=10255 --authentication-token-webhook --authorization-mode=Webhook"' > /etc/default/kubelet

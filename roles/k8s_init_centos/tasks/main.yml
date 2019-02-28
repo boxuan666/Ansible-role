@@ -1,0 +1,73 @@
+---
+
+# This for init machine to install k8s
+
+- name: disable firewalld
+  service: name=firewalld state=stopped enabled=no
+
+- name: disable selinux
+  selinux: state=disabled
+
+- name: Edit yum repo
+  copy: src=CentOS7-Base-163.repo dest=/etc/yum.repos.d/CentOS-Base.repo mode=644
+
+- name: Copy k8s repo
+  copy: src=kubernetes.repo dest=/etc/yum.repos.d/kubernetes.repo mode=644
+
+- name: Install the packages for docker-ce
+  yum: name={{ item }} state=latest
+  with_items:
+    - yum-utils
+    - device-mapper-persistent-data
+    - lvm2
+    - https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/stable/Packages/docker-ce-selinux-17.03.3.ce-1.el7.noarch.rpm
+    - https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/stable/Packages/docker-ce-17.03.3.ce-1.el7.x86_64.rpm
+
+- name: Set up docker-ce repository 
+  shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && yum clean all && yum makecache && mkdir -p /etc/docker
+
+- name: Install packages for k8s
+  yum: name={{ item }} state=latest
+  with_items:
+    - ntp
+    - ntpdate
+    - ipset
+    - ipvsadm
+    - kubelet-{{ k8s_package_version }}
+    - kubeadm-{{ k8s_package_version }}
+    - kubectl-{{ k8s_package_version }}
+  notify: enable kubelet
+
+- name: Copy ntpd config file
+  template: src=ntp.conf.j2 dest=/etc/ntp.conf mode=644  
+  notify: enable ntpd
+
+- name: Replace docker-runc
+  copy: src=runc-v17.03.2-amd64 dest=/usr/bin/docker-runc mode=755
+
+- name: Copy docker configuration
+  template: src=daemon.json.j2 dest=/etc/docker/daemon.json mode=644
+  notify: enable docker
+
+- name: apply common sysctl
+  sysctl: >
+    name={{ item.name }}
+    value={{item.value}}
+    state={{ item.state }}
+    sysctl_file={{ item.sysctl_file }}
+    reload="yes"
+    ignoreerrors="yes"
+  with_items: "{{ common_sysctl_list }}"
+  become: true
+
+- name: Add ipvs parameter
+  modprobe: name={{ item }} state=present
+  with_items:
+    - ip_vs
+    - ip_vs_rr
+    - ip_vs_wrr
+    - ip_vs_sh
+    - nf_conntrack_ipv4
+
+- name: Adjustment os configuration
+  shell: iptables -P FORWARD ACCEPT && swapoff -a && sed -i 's/.*swap.*/#&/' /etc/fstab && echo 'KUBELET_EXTRA_ARGS="--cgroup-driver=cgroupfs --pod-infra-container-image=dir.staff.xdf.cn/google_containers/pause-amd64:3.1 --read-only-port=10255 --authentication-token-webhook --authorization-mode=Webhook"' > /etc/sysconfig/kubelet

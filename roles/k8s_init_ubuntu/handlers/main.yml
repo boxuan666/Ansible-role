@@ -1,0 +1,10 @@
+# Handler for k8s init
+
+- name: restart systemd-timesyncd
+  service: name=systemd-timesyncd state=restarted enabled=yes
+
+- name: enable docker
+  service: name=docker state=restarted enabled=yes
+
+- name: enable kubelet
+  service: name=kubelet state=stopped enabled=yes
