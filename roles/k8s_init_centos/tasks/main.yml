@@ -14,6 +14,20 @@
 - name: Copy k8s repo
   copy: src=kubernetes.repo dest=/etc/yum.repos.d/kubernetes.repo mode=644
 
+- name: Edit hugepage for nosql node
+  blockinfile:
+    path: /etc/rc.local
+    backup: yes
+    block: |
+      if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+        echo never > /sys/kernel/mm/transparent_hugepage/enabled
+      fi
+
+      if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+        echo never > /sys/kernel/mm/transparent_hugepage/defrag
+      fi
+  when: nosql_node
+
 - name: Install the packages for docker-ce
   yum: name={{ item }} state=latest
   with_items:

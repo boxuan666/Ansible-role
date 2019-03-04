@@ -26,6 +26,21 @@
   with_items:
     - "https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg"
     - "http://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg"
+
+- name: Edit hugepage for nosql node
+  blockinfile:
+    path: /etc/rc.local
+    backup: yes
+    block: |
+      if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+        echo never > /sys/kernel/mm/transparent_hugepage/enabled
+      fi
+
+      if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+        echo never > /sys/kernel/mm/transparent_hugepage/defrag
+      fi
+  when: nosql_node
+
 - name: Install the packages
   apt: name={{ item }} update_cache=yes
   with_items:

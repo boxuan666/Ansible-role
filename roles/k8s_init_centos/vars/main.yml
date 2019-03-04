@@ -1,4 +1,4 @@
- common_sysctl_list:
+common_sysctl_list:
   - { name: 'net.ipv4.tcp_tw_recycle', value: "0" , state: "present", sysctl_file: "/etc/sysctl.conf" }
   - { name: 'net.ipv4.tcp_tw_reuse', value: "1" , state: "present", sysctl_file: "/etc/sysctl.conf" }
   - { name: 'net.ipv4.tcp_max_tw_buckets', value: "2000" , state: "present", sysctl_file: "/etc/sysctl.conf" }
