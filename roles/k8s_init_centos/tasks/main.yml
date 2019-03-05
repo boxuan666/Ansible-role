@@ -26,7 +26,7 @@
       if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
         echo never > /sys/kernel/mm/transparent_hugepage/defrag
       fi
-  when: nosql_node
+  when: nosql_node is defined
 
 - name: Install the packages for docker-ce
   yum: name={{ item }} state=latest
